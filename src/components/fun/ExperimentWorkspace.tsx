@@ -117,8 +117,17 @@ export default function ExperimentWorkspace() {
       return 'hsla(210, 20%, 50%, 0.1)';
     }
 
-    const totalQuantity = stagedChemicals.reduce((acc, c) => acc + c.quantity, 0);
-    const avgColor = stagedChemicals.reduce((acc, c) => {
+    const liquidChemicals = stagedChemicals.filter(c => c.state === 'liquid');
+    if (liquidChemicals.length === 0) {
+        return 'hsla(210, 20%, 50%, 0.1)'; // Default color if no liquids
+    }
+
+    const totalQuantity = liquidChemicals.reduce((acc, c) => acc + c.quantity, 0);
+    if (totalQuantity === 0) {
+        return 'hsla(210, 20%, 50%, 0.1)';
+    }
+    
+    const avgColor = liquidChemicals.reduce((acc, c) => {
       const [h, s, l, a] = c.color.match(/\d+(\.\d+)?/g)!.map(parseFloat);
       const weight = c.quantity / totalQuantity;
       acc.h += h * weight;
@@ -129,6 +138,13 @@ export default function ExperimentWorkspace() {
 
     return `hsla(${avgColor.h}, ${avgColor.s}%, ${avgColor.l}%, 0.6)`;
   };
+
+  const getSolidParticles = () => {
+      if (productName) return [];
+      const solids = stagedChemicals.filter(c => c.state === 'solid');
+      // Create more particles based on quantity
+      return solids.flatMap(solid => Array.from({ length: Math.ceil(solid.quantity / 100) }, (_, i) => ({ id: `${solid.id}-${i}`, color: solid.color })));
+  }
 
   return (
     <SidebarProvider>
@@ -222,6 +238,7 @@ export default function ExperimentWorkspace() {
                     className="w-48 h-48 transition-all duration-500"
                     liquidColor={getBeakerColor()}
                     liquidPercentage={stagedChemicals.length > 0 ? (productName ? 100 : Math.min(100, stagedChemicals.reduce((acc, c) => acc + c.quantity / 10, 0))) : 0}
+                    solidParticles={getSolidParticles()}
                 />
                 <Button size="lg" className="w-64" onClick={handleMix}>
                     <Flame className="mr-2"/> Mix Chemicals!
