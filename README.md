@@ -10,6 +10,7 @@ VALENCE is an immersive virtual chemistry environment designed for both fun expe
 Whether you're a student trying to master reaction mechanisms or simply someone who loves mixing chemicals to see what happens — this is your lab.
 
 🚀 Features
+
 🧪 Fun Mode
 
 Experiment freely with available chemicals:
