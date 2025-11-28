@@ -6,6 +6,7 @@ export interface Chemical {
   state: 'solid' | 'liquid' | 'gas';
 }
 
+
 export interface Reaction {
   reagents: string[];
   isDangerous: boolean;
