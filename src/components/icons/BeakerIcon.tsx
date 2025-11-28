@@ -6,6 +6,7 @@ interface BeakerIconProps extends SVGProps<SVGSVGElement> {
   solidParticles?: { id: string; color: string }[];
 }
 
+
 const BeakerIcon = ({ liquidPercentage = 0, liquidColor = "hsla(210, 90%, 50%, 0.5)", solidParticles = [], ...props }: BeakerIconProps) => {
   const liquidHeight = Math.max(0, Math.min(100, liquidPercentage));
   const y = 100 - liquidHeight;
