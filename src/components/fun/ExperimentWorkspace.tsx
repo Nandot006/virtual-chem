@@ -19,7 +19,7 @@ import BeakerIcon from "@/components/icons/BeakerIcon";
 import { Chemical, chemicals, reactions, Reaction } from "@/lib/valence-data";
 import { Atom, FlaskConical, Flame, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import Blast from "./Blast";
+import FireBlast from "./FireBlast";
 import QuizDialog from "./QuizDialog";
 
 interface StagedChemical extends Chemical {
@@ -248,7 +248,7 @@ export default function ExperimentWorkspace() {
           </div>
         </SidebarInset>
       </div>
-      {isExploded && <Blast />}
+      {isExploded && <FireBlast />}
       {currentReaction?.quiz && (
         <QuizDialog
           isOpen={showQuiz}
