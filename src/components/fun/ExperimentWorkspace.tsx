@@ -8,8 +8,6 @@ import {
   SidebarContent,
   SidebarMenu,
   SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -17,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import BeakerIcon from "@/components/icons/BeakerIcon";
 import { Chemical, chemicals, reactions, Reaction } from "@/lib/valence-data";
-import { Atom, FlaskConical, Flame, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { FlaskConical, Flame, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import FireBlast from "./FireBlast";
 import QuizDialog from "./QuizDialog";
@@ -180,73 +178,71 @@ export default function ExperimentWorkspace() {
             </ScrollArea>
           </SidebarContent>
         </Sidebar>
-        <SidebarInset>
-          <div className="p-4 md:p-8 h-full flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex gap-2 items-center">
-                    <SidebarTrigger className="md:hidden" />
-                    <h1 className="text-2xl md:text-3xl font-bold">Experiment Lab</h1>
-                </div>
-              <Button variant="destructive" onClick={resetWorkspace}><Trash2 className="mr-2"/> Clear All</Button>
-            </div>
-            
-            <div className="grid md:grid-cols-3 gap-8 flex-1">
-              <Card className="md:col-span-1 h-full flex flex-col">
-                <CardHeader>
-                  <CardTitle>Staging Area</CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1">
-                  <ScrollArea className="h-[calc(100%-2rem)]">
-                    <div className="space-y-4">
-                      {stagedChemicals.length === 0 && (
-                          <div className="text-center text-muted-foreground py-10">
-                              <p>Select chemicals from the left panel to begin.</p>
-                          </div>
-                      )}
-                      {stagedChemicals.map((chem) => (
-                        <div key={chem.id} className="p-3 rounded-md border bg-secondary flex flex-col gap-2">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="font-semibold">{chem.name}</p>
-                                    <p className="text-xs text-muted-foreground">{chem.formula}</p>
-                                </div>
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeChemical(chem.id)}>
-                                    <X className="h-4 w-4"/>
-                                </Button>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs">Qty (ml):</span>
-                                <input type="range" min="10" max="1000" step="10" value={chem.quantity} 
-                                    onChange={(e) => updateQuantity(chem.id, parseInt(e.target.value))}
-                                    className="w-full"
-                                />
-                                <span className="text-sm font-mono w-12 text-right">{chem.quantity}</span>
-                            </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-
-              <div className="md:col-span-2 h-full flex flex-col items-center justify-center gap-6 p-4 rounded-lg bg-secondary/30 border-dashed border-2">
-                <div className="text-center">
-                  <h3 className="text-2xl font-semibold">Reaction Vessel</h3>
-                  {productName && <p className="text-lg text-primary">Product: {productName}</p>}
-                </div>
-                <BeakerIcon 
-                    className="w-48 h-48 transition-all duration-500"
-                    liquidColor={getBeakerColor()}
-                    liquidPercentage={stagedChemicals.length > 0 ? (productName ? 100 : Math.min(100, stagedChemicals.reduce((acc, c) => acc + c.quantity / 10, 0))) : 0}
-                    solidParticles={getSolidParticles()}
-                />
-                <Button size="lg" className="w-64" onClick={handleMix}>
-                    <Flame className="mr-2"/> Mix Chemicals!
-                </Button>
+        <main className="p-4 md:p-8 h-screen flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+              <div className="flex gap-2 items-center">
+                  <SidebarTrigger />
+                  <h1 className="text-2xl md:text-3xl font-bold">Experiment Lab</h1>
               </div>
+            <Button variant="destructive" onClick={resetWorkspace}><Trash2 className="mr-2"/> Clear All</Button>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8 flex-1">
+            <Card className="md:col-span-1 h-full flex flex-col">
+              <CardHeader>
+                <CardTitle>Staging Area</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1">
+                <ScrollArea className="h-[calc(100%-2rem)]">
+                  <div className="space-y-4">
+                    {stagedChemicals.length === 0 && (
+                        <div className="text-center text-muted-foreground py-10">
+                            <p>Select chemicals from the menu to begin.</p>
+                        </div>
+                    )}
+                    {stagedChemicals.map((chem) => (
+                      <div key={chem.id} className="p-3 rounded-md border bg-secondary flex flex-col gap-2">
+                          <div className="flex justify-between items-start">
+                              <div>
+                                  <p className="font-semibold">{chem.name}</p>
+                                  <p className="text-xs text-muted-foreground">{chem.formula}</p>
+                              </div>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeChemical(chem.id)}>
+                                  <X className="h-4 w-4"/>
+                              </Button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                              <span className="text-xs">Qty (ml):</span>
+                              <input type="range" min="10" max="1000" step="10" value={chem.quantity} 
+                                  onChange={(e) => updateQuantity(chem.id, parseInt(e.target.value))}
+                                  className="w-full"
+                              />
+                              <span className="text-sm font-mono w-12 text-right">{chem.quantity}</span>
+                          </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            <div className="md:col-span-2 h-full flex flex-col items-center justify-center gap-6 p-4 rounded-lg bg-secondary/30 border-dashed border-2">
+              <div className="text-center">
+                <h3 className="text-2xl font-semibold">Reaction Vessel</h3>
+                {productName && <p className="text-lg text-primary">Product: {productName}</p>}
+              </div>
+              <BeakerIcon 
+                  className="w-48 h-48 transition-all duration-500"
+                  liquidColor={getBeakerColor()}
+                  liquidPercentage={stagedChemicals.length > 0 ? (productName ? 100 : Math.min(100, stagedChemicals.reduce((acc, c) => acc + c.quantity / 10, 0))) : 0}
+                  solidParticles={getSolidParticles()}
+              />
+              <Button size="lg" className="w-64" onClick={handleMix}>
+                  <Flame className="mr-2"/> Mix Chemicals!
+              </Button>
             </div>
           </div>
-        </SidebarInset>
+        </main>
       </div>
       {isExploded && <FireBlast />}
       {currentReaction?.quiz && (
