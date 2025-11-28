@@ -4,15 +4,29 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Upload, Beaker, FlaskRound, TestTube, AlertTriangle, Loader2 } from "lucide-react";
+import { Upload, FlaskRound, AlertTriangle, Loader2, Trash2, X, Flame, Sparkles } from "lucide-react";
 import { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeSyllabus, AnalyzeSyllabusOutput } from "@/ai/flows/analyze-syllabus-flow";
+import BeakerIcon from "@/components/icons/BeakerIcon";
+import FireBlast from "@/components/fun/FireBlast";
+import QuizDialog from "@/components/fun/QuizDialog";
+import { reactions, Reaction, Chemical, chemicals } from "@/lib/valence-data";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+
+interface StagedChemical {
+  name: string;
+  formula: string;
+  quantity: number;
+  // Find the full chemical data from the static list for state and color
+  baseChemical: Chemical | undefined;
+}
+
 
 export default function InteractiveLabPage() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [beakerContent, setBeakerContent] = useState<{element: string; amount: number}[]>([]);
-  const [testTubes, setTestTubes] = useState<{id: number; content: string}[]>([]);
+  const [stagedChemicals, setStagedChemicals] = useState<StagedChemical[]>([]);
   const [showExplosion, setShowExplosion] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,8 +34,8 @@ export default function InteractiveLabPage() {
 
   const [labData, setLabData] = useState<AnalyzeSyllabusOutput>({ chemicals: [] });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  const testTubeSlots = Array.from({ length: 6 }, (_, i) => i + 1);
+  const [currentReaction, setCurrentReaction] = useState<Reaction | null>(null);
+  const [productName, setProductName] = useState<string | null>(null);
 
   const toBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -37,8 +51,8 @@ export default function InteractiveLabPage() {
       const file = files[0];
       setUploadedFiles([file]);
       
+      resetLab(false);
       setIsAnalyzing(true);
-      setLabData({ chemicals: [] });
       toast({
         title: "Analyzing Document...",
         description: "The AI is extracting chemicals from your syllabus. This may take a moment.",
@@ -64,52 +78,134 @@ export default function InteractiveLabPage() {
       }
     }
   };
-
-  const addElementToBeaker = (element: string) => {
-    // For simplicity, using a default amount.
-    // The input for amount is removed to simplify the UI.
-    const amount = 50;
-    const newContent = [...beakerContent, { element, amount }];
-    setBeakerContent(newContent);
-    
-    if (checkForDangerousReaction(newContent)) {
-      setShowExplosion(true);
-      setTimeout(() => {
-        setShowExplosion(false);
-        setShowQuiz(true)
-      }, 1500);
+  
+  const addChemicalToStage = (chemical: { name: string; formula: string; }) => {
+    if (stagedChemicals.find((c) => c.name === chemical.name)) {
+      toast({
+        title: "Chemical already added",
+        description: "You can adjust the quantity in the staging area.",
+      });
+      return;
     }
+    // Find the full chemical data to get its state (solid/liquid) and color
+    const baseChemical = chemicals.find(c => c.name === chemical.name || c.formula === chemical.formula);
+    setStagedChemicals([...stagedChemicals, { ...chemical, quantity: 100, baseChemical }]);
   };
 
-  const checkForDangerousReaction = (contents: {element: string; amount: number}[]) => {
-    // This is a mock check. In a real scenario, this would be driven by the AI analysis.
-    const hasAcid = contents.some(item => item.element.toLowerCase().includes('acid'));
-    const hasBase = contents.some(item => item.element.toLowerCase().includes('hydroxide'));
-    return hasAcid && hasBase;
+  const removeChemical = (name: string) => {
+    setStagedChemicals(stagedChemicals.filter((c) => c.name !== name));
   };
 
-  const transferToTestTube = (tubeId: number) => {
-    if (beakerContent.length > 0) {
-      const content = beakerContent.map(item => `${item.element}`).join(' + ');
-      setTestTubes(prev => [...prev.filter(t => t.id !== tubeId), { id: tubeId, content }]);
-      setBeakerContent([]);
+  const updateQuantity = (name: string, quantity: number) => {
+    setStagedChemicals(
+      stagedChemicals.map((c) =>
+        c.name === name ? { ...c, quantity: Math.max(10, quantity) } : c
+      )
+    );
+  };
+
+  const handleMix = () => {
+    setProductName(null);
+
+    // We need to find the ID of the staged chemicals to check against reactions data
+    const stagedIds = stagedChemicals.map(sc => sc.baseChemical?.id).filter((id): id is string => !!id).sort();
+
+    const reaction = reactions.find((r) => {
+      const sortedReagents = [...r.reagents].sort();
+      return JSON.stringify(sortedReagents) === JSON.stringify(stagedIds);
+    });
+
+    setCurrentReaction(reaction || null);
+
+    if (reaction) {
+      if (reaction.isDangerous) {
+        setShowExplosion(true);
+        setTimeout(() => {
+          setShowExplosion(false);
+          if (reaction.quiz) {
+            setShowQuiz(true);
+          }
+        }, 2000);
+      } else {
+        setProductName(reaction.product.name);
+        toast({
+          title: "Reaction Successful!",
+          description: `You've created ${reaction.product.name}.`,
+          action: <Sparkles className="text-green-500" />,
+        });
+      }
+    } else if (stagedChemicals.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "No Reaction",
+        description: "These chemicals don't seem to react with each other.",
+      });
+    } else {
+       toast({
+        title: "Empty Beaker",
+        description: "Add some chemicals to start an experiment.",
+      });
     }
   };
   
-  const resetLab = () => {
-    setBeakerContent([]);
-    setTestTubes([]);
-    setUploadedFiles([]);
-    setLabData({ chemicals: [] });
-    setIsAnalyzing(false);
-    if(fileInputRef.current) {
-        fileInputRef.current.value = "";
+  const resetLab = (showToast = true) => {
+    setStagedChemicals([]);
+    setCurrentReaction(null);
+    setProductName(null);
+    setShowQuiz(false);
+
+    if(showToast) {
+        // Only reset file input if starting completely over
+        setUploadedFiles([]);
+        setLabData({ chemicals: [] });
+        setIsAnalyzing(false);
+        if(fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+        toast({ title: "Lab Reset", description: "Ready for a new experiment."});
     }
-    toast({ title: "Lab Reset", description: "Ready for a new experiment."});
+  }
+
+  const getBeakerColor = () => {
+    if (productName && currentReaction) {
+      return currentReaction.product.color;
+    }
+    if (stagedChemicals.length === 0) {
+      return 'hsla(210, 20%, 50%, 0.1)';
+    }
+
+    const liquidChemicals = stagedChemicals.filter(c => c.baseChemical?.state === 'liquid');
+    if (liquidChemicals.length === 0) {
+        return 'hsla(210, 20%, 50%, 0.1)';
+    }
+
+    const totalQuantity = liquidChemicals.reduce((acc, c) => acc + c.quantity, 0);
+    if (totalQuantity === 0) {
+        return 'hsla(210, 20%, 50%, 0.1)';
+    }
+    
+    const avgColor = liquidChemicals.reduce((acc, c) => {
+      if (!c.baseChemical) return acc;
+      const [h, s, l] = c.baseChemical.color.match(/\d+(\.\d+)?/g)!.map(parseFloat);
+      const weight = c.quantity / totalQuantity;
+      acc.h += h * weight;
+      acc.s += s * weight;
+      acc.l += l * weight;
+      return acc;
+    }, { h: 0, s: 0, l: 0 });
+
+    return `hsla(${avgColor.h}, ${avgColor.s}%, ${avgColor.l}%, 0.6)`;
+  };
+
+  const getSolidParticles = () => {
+      if (productName) return [];
+      const solids = stagedChemicals.filter(c => c.baseChemical?.state === 'solid');
+      // Create more particles based on quantity
+      return solids.flatMap(solid => Array.from({ length: Math.ceil(solid.quantity / 100) }, (_, i) => ({ id: `${solid.name}-${i}`, color: solid.baseChemical?.color || 'white' })));
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div className={`container mx-auto py-6 px-4 sm:px-6 lg:px-8 ${showExplosion ? 'animate-shake' : ''}`}>
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -134,7 +230,7 @@ export default function InteractiveLabPage() {
               {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</> : 'Choose File'}
             </Button>
             {uploadedFiles.length > 0 && !isAnalyzing && (
-                 <Button variant="outline" onClick={resetLab}>Start Over</Button>
+                 <Button variant="outline" onClick={() => resetLab(true)}>Start Over</Button>
             )}
             <span className="text-sm text-muted-foreground">
               {uploadedFiles.length > 0 ? uploadedFiles[0].name : 'No file chosen'}
@@ -144,12 +240,13 @@ export default function InteractiveLabPage() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-1 h-full flex flex-col">
           <CardHeader>
             <CardTitle>Available Chemicals</CardTitle>
             <CardDescription>Extracted from your document</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex-1">
+            <ScrollArea className="h-full pr-4">
              {isAnalyzing && (
                 <div className="flex items-center justify-center py-10">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -159,117 +256,99 @@ export default function InteractiveLabPage() {
                 <p className="text-center text-muted-foreground py-10">Upload a document to begin.</p>
             )}
             {labData.chemicals.map((chemical) => (
-              <div key={chemical.name} className="flex items-center justify-between p-3 border rounded-lg">
+              <div key={chemical.name} className="flex items-center justify-between p-3 border rounded-lg mb-3">
                 <div>
                     <span className="font-medium">{chemical.name}</span>
                     <p className="text-sm text-muted-foreground">{chemical.formula}</p>
                 </div>
                 <Button 
                     size="sm"
-                    onClick={() => addElementToBeaker(chemical.name)}
+                    onClick={() => addChemicalToStage(chemical)}
                   >
                     Add
                   </Button>
               </div>
             ))}
+            </ScrollArea>
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FlaskRound className="h-5 w-5" />
-              Laboratory Workspace
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-4">
-                <Beaker className="h-8 w-8 text-primary" />
-                <h3 className="text-lg font-semibold">Beaker</h3>
-              </div>
-              <div className="border-2 border-dashed rounded-lg p-4 min-h-[100px] bg-secondary/30">
-                {beakerContent.length === 0 ? (
-                  <p className="text-muted-foreground text-center">Empty - Add chemicals to start a reaction</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {beakerContent.map((item, index) => (
-                      <span key={index} className="bg-primary/20 text-primary-foreground px-3 py-1 rounded-full text-sm">
-                        {item.element}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <TestTube className="h-6 w-6 text-accent" />
-                <h3 className="text-lg font-semibold">Test Tubes</h3>
-              </div>
-              <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
-                {testTubeSlots.map((tubeId) => {
-                  const tube = testTubes.find(t => t.id === tubeId);
-                  return (
-                    <div key={tubeId} className="text-center">
-                      <div className="border-2 border-dashed rounded-lg p-3 h-24 bg-secondary/30 flex items-center justify-center">
-                        {tube ? (
-                          <span className="text-xs font-medium">{tube.content}</span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">Empty</span>
-                        )}
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="mt-2 w-full"
-                        onClick={() => transferToTestTube(tubeId)}
-                        disabled={beakerContent.length === 0}
-                      >
-                        Transfer
-                      </Button>
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1 h-full flex flex-col">
+                <CardHeader>
+                  <CardTitle>Staging Area</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1">
+                  <ScrollArea className="h-full pr-4">
+                    <div className="space-y-4">
+                      {stagedChemicals.length === 0 && (
+                          <div className="text-center text-muted-foreground py-10">
+                              <p>Add chemicals to the staging area.</p>
+                          </div>
+                      )}
+                      {stagedChemicals.map((chem) => (
+                        <div key={chem.name} className="p-3 rounded-md border bg-secondary flex flex-col gap-2">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-semibold">{chem.name}</p>
+                                    <p className="text-xs text-muted-foreground">{chem.formula}</p>
+                                </div>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeChemical(chem.name)}>
+                                    <X className="h-4 w-4"/>
+                                </Button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs">Qty (ml):</span>
+                                <input type="range" min="10" max="1000" step="10" value={chem.quantity} 
+                                    onChange={(e) => updateQuantity(chem.name, parseInt(e.target.value))}
+                                    className="w-full"
+                                />
+                                <span className="text-sm font-mono w-12 text-right">{chem.quantity}</span>
+                            </div>
+                        </div>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+              <Card className="md:col-span-2 h-full flex flex-col">
+                <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <FlaskRound className="h-5 w-5" />
+                            Reaction Vessel
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => resetLab(false)}><Trash2 className="mr-2 h-4 w-4"/>Clear Beaker</Button>
+                    </CardTitle>
+                    {productName && <CardDescription className="text-primary pt-2">Product: {productName}</CardDescription>}
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col items-center justify-center gap-6">
+                    <BeakerIcon 
+                        className="w-48 h-48 transition-all duration-500"
+                        liquidColor={getBeakerColor()}
+                        liquidPercentage={stagedChemicals.length > 0 ? (productName ? 100 : Math.min(100, stagedChemicals.reduce((acc, c) => acc + c.quantity / 10, 0))) : 0}
+                        solidParticles={getSolidParticles()}
+                    />
+                    <Button size="lg" className="w-64" onClick={handleMix}>
+                        <Flame className="mr-2"/> Mix Chemicals!
+                    </Button>
+                </CardContent>
+              </Card>
+        </div>
       </div>
 
-      {showExplosion && (
-        <div className="fixed inset-0 bg-red-600/80 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="text-white text-center animate-pulse">
-            <AlertTriangle className="h-24 w-24 mx-auto mb-4" />
-            <h2 className="text-4xl font-bold mb-2">DANGEROUS REACTION!</h2>
-          </div>
-        </div>
-      )}
-
-      {showQuiz && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <Card className="max-w-md w-full mx-4">
-            <CardHeader>
-              <CardTitle>Safety Quiz</CardTitle>
-              <CardDescription>
-                Why might mixing an acid and a base be dangerous?
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start" onClick={() => { setShowQuiz(false); resetLab(); }}>
-                It can be an exothermic reaction, releasing heat.
-              </Button>
-              <Button variant="outline" className="w-full justify-start" onClick={() => { setShowQuiz(false); resetLab(); }}>
-                It changes the color.
-              </Button>
-              <Button variant="outline" className="w-full justify-start" onClick={() => { setShowQuiz(false); resetLab(); }}>
-                It has a strong smell.
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+      {showExplosion && <FireBlast />}
+      
+      {currentReaction?.quiz && (
+        <QuizDialog
+          isOpen={showQuiz}
+          onOpenChange={setShowQuiz}
+          quiz={currentReaction.quiz}
+          onClose={() => resetLab(false)}
+        />
       )}
     </div>
   );
 }
+
+    
