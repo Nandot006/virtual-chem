@@ -17,6 +17,7 @@ const FireBlast = () => {
     };
   }, []);
 
+  
   const particles = useMemo(() => {
     if (stage < 1) return [];
     return Array.from({ length: 50 }).map((_, i) => ({
