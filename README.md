@@ -33,9 +33,5 @@ Ideal for exam prep, concept reinforcement, or structured study sessions.
 Chemical set is currently limited (expanding soon!)
 More reaction types and visualization features will be added
 
-🏗️ Tech Stack
-
-(Add details here if you want—Firebase, JS, React, etc.)
-
 📌 Project Status
 Early development stage — contributions coming soon.
